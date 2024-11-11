@@ -1,6 +1,12 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma.js";
+import rateLimit from 'express-rate-limit';
+
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5 // limit each IP to 5 requests per windowMs
+});
 
 // Register a new user
 const register = async (req, res) => {
@@ -23,6 +29,13 @@ const register = async (req, res) => {
       });
     }
 
+    // Check password length
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        message: "Password must be at least 6 characters long" 
+      });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -39,6 +52,20 @@ const register = async (req, res) => {
         email: true,
         createdAt: true,
       },
+    });
+
+    // Generate token immediately after registration
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Set cookie with the token
+    res.cookie("token", token, {
+      httpOnly: true, // Prevents client-side access to the cookie
+      secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours  
     });
 
     return res.status(201).json({
@@ -80,7 +107,7 @@ const login = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true, // Prevents client-side access to the cookie
       secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours  
     });
 
     return res.status(200).json({
@@ -89,6 +116,7 @@ const login = async (req, res) => {
         id: user.id,
         email: user.email,
         username: user.username,
+        avatar: user.avatar,
       },
     });
   } catch (error) {

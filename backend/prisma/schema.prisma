@@ -8,11 +8,112 @@ datasource db {
 }
 
 model User {
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  email      String     @unique
+  username   String     @unique
+  password   String
+  avatar     String?
+  role       UserRole   @default(CLIENT)
+  properties Property[] @relation("UserProperties")
+  interests  Interest[] @relation("UserInterests")
+  wishlist   Wishlist[]
+  chats      Chat[]     @relation(fields: [chatIds], references: [id])
+  chatIds    String[]   @db.ObjectId
+  messages   Message[]  @relation("UserMessages")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+enum UserRole {
+  CLIENT
+  OWNER
+}
+
+model Property {
+  id              String          @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String
+  price           Float
+  location        String
+  latitude        Float
+  longitude       Float
+  propertyType    PropertyType
+  transactionType TransactionType
+  bedrooms        Int
+  bathrooms       Int
+  size            Float
+  furnished       Boolean
+  yearBuilt       Int?
+  amenities       String[]
+  images          String[]
+  status          PropertyStatus  @default(AVAILABLE)
+  user            User            @relation("UserProperties", fields: [userId], references: [id], onDelete: Cascade)
+  userId          String          @db.ObjectId
+  interests       Interest[]      @relation("PropertyInterests")
+  wishlistedBy    Wishlist[]
+  chats           Chat[]          @relation("PropertyChats")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+enum PropertyType {
+  HOUSE
+  APARTMENT
+  COMMERCIAL
+  LAND
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  SOLD
+  RENTED
+}
+
+enum TransactionType {
+  FOR_SALE
+  FOR_RENT
+}
+
+model Wishlist {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   @db.ObjectId
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId String   @db.ObjectId
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+model Interest {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  user       User     @relation("UserInterests", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   @db.ObjectId
+  property   Property @relation("PropertyInterests", fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId String   @db.ObjectId
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+}
+
+model Chat {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  participantIds String[]  @db.ObjectId
+  participants   User[]    @relation(fields: [participantIds], references: [id])
+  property       Property  @relation("PropertyChats", fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId     String    @db.ObjectId
+  messages       Message[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Message {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  email     String   @unique
-  username  String   @unique
-  password  String
-  avatar    String?
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chatId    String   @db.ObjectId
+  sender    User     @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId  String   @db.ObjectId
+  content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
